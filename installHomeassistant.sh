@@ -124,15 +124,40 @@ echo "=========================================================="
 echo "I: HAOS is now starting in the background on bridge br0."
 echo "I: Note: New Home Assistant installations (2026.8+) use port 80 (HTTP) by default."
 echo ""
-echo "I: Waiting a few moments to detect the VM's assigned IP address..."
+
+# Spinner while fetching the IP address
 HA_IP=""
-for i in {1..12}; do
+MAX_WAIT_SECONDS=60
+START_TIME=$(date +%s)
+SPIN_CHARS='|/-\'
+SPIN_INDEX=0
+
+# Ensure cursor is restored if interrupted
+trap 'tput cnorm 2>/dev/null || true' EXIT INT TERM
+tput civis 2>/dev/null || true
+
+while true; do
     HA_IP=$(virsh domifaddr haos 2>/dev/null | awk '/ipv4/ {print $4}' | cut -d'/' -f1 | head -n 1)
     if [ -n "$HA_IP" ]; then
         break
     fi
-    sleep 5
+
+    CURRENT_TIME=$(date +%s)
+    ELAPSED=$((CURRENT_TIME - START_TIME))
+    if [ "$ELAPSED" -ge "$MAX_WAIT_SECONDS" ]; then
+        break
+    fi
+
+    CHAR="${SPIN_CHARS:$SPIN_INDEX:1}"
+    printf "\rI: [%s] Waiting for VM to obtain IP address... (%ds / %ds, script is running)" "$CHAR" "$ELAPSED" "$MAX_WAIT_SECONDS"
+    SPIN_INDEX=$(( (SPIN_INDEX + 1) % 4 ))
+    sleep 1
 done
+
+# Clear spinner line and restore cursor
+printf "\r\033[K"
+tput cnorm 2>/dev/null || true
+trap - EXIT INT TERM
 
 echo "I: You can reach Home Assistant at:"
 echo "   http://homeassistant.local"
@@ -140,7 +165,7 @@ if [ -n "$HA_IP" ]; then
     echo "   http://$HA_IP"
 else
     echo "   http://<Your-Assigned-IP>"
-    echo "   (Check your router's DHCP list or run: 'virsh domifaddr haos' once booted)"
+    echo "   (The VM is still initializing. Check your router's DHCP list or run: 'virsh domifaddr haos')"
 fi
 echo ""
 echo "I: Keep in mind that first boot can take several minutes to complete initial setup."
