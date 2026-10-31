@@ -1,6 +1,6 @@
 # Homeassistant-OS-on-Raspberry-Pi-5-KVM
 
-Run genuine, officially supported **Home Assistant OS (HAOS)** inside a lightweight KVM virtual machine on your **Raspberry Pi 5** running **Raspberry Pi OS 64-bit**.
+Run **Home Assistant OS (HAOS)** inside a lightweight KVM virtual machine on your **Raspberry Pi 5** running **Raspberry Pi OS 64-bit**.
 
 ---
 
@@ -28,7 +28,7 @@ Run genuine, officially supported **Home Assistant OS (HAOS)** inside a lightwei
 
 With the deprecation of Home Assistant Supervised in 2025.12, running Home Assistant OS inside a KVM virtual machine is the recommended modern solution for Raspberry Pi 5 users who want the best of both worlds:
 
-- Officially Supported:\*\* Runs genuine Home Assistant OS with official update streams, supervisor health checks, and the complete Add-on Store.
+- **Officially Supported:** Runs genuine Home Assistant OS with official update streams, supervisor health checks, and the complete Add-on Store.
 - **Full Host OS Control:** Your Raspberry Pi continues running Raspberry Pi OS on bare metal for your own Docker containers, NAS storage, or native services.
 - **Hardware Virtualization on Pi 5:** The Broadcom BCM2712 CPU on the Raspberry Pi 5 features ARMv8.2-A hardware virtualization extensions with near-zero performance overhead.
 - **Dedicated LAN IP:** Using a network bridge (`br0`), Home Assistant has full Layer 2 access to your local network for local IoT discovery (mDNS, HomeKit, Matter/Thread).
