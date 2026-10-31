@@ -5,33 +5,36 @@ Run genuine, officially supported **Home Assistant OS (HAOS)** inside a lightwei
 ---
 
 ## Contents
+
 - [Introduction](#introduction)
-   - [Why HAOS in KVM?](#why-haos-in-kvm)
-   - [Requirements](#requirements)
+  - [Why HAOS in KVM?](#why-haos-in-kvm)
+  - [Requirements](#requirements)
 - [Installation](#installation)
-   - [Automatic Installation (Script)](#automatic-installation)
-   - [Manual Installation](#manual-installation)
-      - [Step 1: Install KVM and Virtualization Tools](#step-1-install-kvm-and-virtualization-tools)
-      - [Step 2: Configure Bridged Networking](#step-2-configure-bridged-networking)
-      - [Step 3: Download and Prepare the Generic aarch64 Image](#step-3-download-and-prepare-the-generic-aarch64-image)
-      - [Step 4: Create and Launch the HAOS VM](#step-4-create-and-launch-the-haos-vm)
+  - [Automatic Installation (Script)](#automatic-installation)
+  - [Manual Installation](#manual-installation)
+    - [Step 1: Install KVM and Virtualization Tools](#step-1-install-kvm-and-virtualization-tools)
+    - [Step 2: Configure Bridged Networking](#step-2-configure-bridged-networking)
+    - [Step 3: Download and Prepare the Generic aarch64 Image](#step-3-download-and-prepare-the-generic-aarch64-image)
+    - [Step 4: Create and Launch the HAOS VM](#step-4-create-and-launch-the-haos-vm)
 - [Accessing Home Assistant](#accessing-home-assistant)
 - [Troubleshooting](#troubleshooting)
-   - [UEFI Secure Boot Error (Access Denied / Security Violation)](#uefi-secure-boot-error)
+  - [UEFI Secure Boot Error (Access Denied / Security Violation)](#uefi-secure-boot-error)
 
 ---
 
 # Introduction
 
 ## Why HAOS in KVM?
+
 With the deprecation of Home Assistant Supervised in 2025.12, running Home Assistant OS inside a KVM virtual machine is the recommended modern solution for Raspberry Pi 5 users who want the best of both worlds:
 
-- **100% Officially Supported:** Runs genuine Home Assistant OS with official update streams, supervisor health checks, and the complete Add-on Store.
+- Officially Supported:\*\* Runs genuine Home Assistant OS with official update streams, supervisor health checks, and the complete Add-on Store.
 - **Full Host OS Control:** Your Raspberry Pi continues running Raspberry Pi OS on bare metal for your own Docker containers, NAS storage, or native services.
 - **Hardware Virtualization on Pi 5:** The Broadcom BCM2712 CPU on the Raspberry Pi 5 features ARMv8.2-A hardware virtualization extensions with near-zero performance overhead.
 - **Dedicated LAN IP:** Using a network bridge (`br0`), Home Assistant has full Layer 2 access to your local network for local IoT discovery (mDNS, HomeKit, Matter/Thread).
 
 ## Requirements
+
 - **Hardware:** Raspberry Pi 5 (4GB, 8GB, or 16GB RAM)
 - **Host OS:** Raspberry Pi OS 64-bit (Debian Bookworm or Trixie)
 - **Network:** Physical Ethernet connection recommended (required for bridging `br0`)
@@ -42,6 +45,7 @@ With the deprecation of Home Assistant Supervised in 2025.12, running Home Assis
 # Installation
 
 ## Automatic Installation
+
 You can install and deploy Home Assistant OS in KVM with a single command using the automated installer script:
 
 ```bash
@@ -49,6 +53,7 @@ sudo wget https://raw.githubusercontent.com/HuckleberryLovesYou/Homeassistant-OS
 ```
 
 The script will:
+
 1. Verify system and architecture compatibility.
 2. Install QEMU, KVM, libvirt, and UEFI firmware tools.
 3. Automatically configure the network bridge `br0` on your physical Ethernet interface using NetworkManager.
@@ -60,7 +65,9 @@ The script will:
 ## Manual Installation
 
 ### Step 1: Install KVM and Virtualization Tools
+
 Install the virtualization stack and UEFI ARM firmware:
+
 ```bash
 sudo apt update
 sudo apt install -y qemu-system-arm qemu-efi-aarch64 libvirt-daemon-system libvirt-clients bridge-utils virtinst qemu-utils xz-utils curl jq
@@ -70,6 +77,7 @@ sudo usermod -aG libvirt,kvm $USER
 ```
 
 ### Step 2: Configure Bridged Networking
+
 Home Assistant requires Layer 2 network access to your local subnet for device discovery (mDNS, HomeKit, Matter). Configure a network bridge (`br0`) attached to your physical Ethernet interface:
 
 ```bash
@@ -83,10 +91,12 @@ sudo nmcli connection up br0
 ```
 
 ### Step 3: Download and Prepare the Generic aarch64 Image
+
 > [!NOTE]  
 > Use the **`generic-aarch64`** image (not `haos_rpi5-64`). In a virtual machine, QEMU exposes a standard UEFI `virt` machine type, which uses the generic ARM64 Linux kernel and drivers.
 
 Download the latest image from [Home Assistant OS Releases](https://github.com/home-assistant/operating-system/releases) and expand its virtual disk:
+
 ```bash
 # Fetch latest release URL
 HAOS_URL=$(curl -s https://api.github.com/repos/home-assistant/operating-system/releases/latest | grep "browser_download_url.*haos_generic-aarch64-.*\.qcow2\.xz" | cut -d '"' -f 4 | head -n 1)
@@ -103,10 +113,12 @@ sudo mv haos_generic-aarch64.qcow2 /var/lib/libvirt/images/haos.qcow2
 ```
 
 ### Step 4: Create and Launch the HAOS VM
-> [!IMPORTANT]  
+
+> [!NOTE]  
 > Home Assistant OS does not support Secure Boot. Disable Secure Boot explicitly in the UEFI parameters as shown below.
 
 Run `virt-install` to create and launch the VM (allocate 4096MB RAM if you have an 8GB/16GB Pi 5, or 2048MB for a 4GB model):
+
 ```bash
 sudo virt-install \
   --name haos \
@@ -124,6 +136,7 @@ sudo virt-install \
 ```
 
 Set the VM to automatically start when your Raspberry Pi boots:
+
 ```bash
 sudo virsh autostart haos
 ```
@@ -136,6 +149,7 @@ sudo virsh autostart haos
 > New Home Assistant installations (2026.8+) use port **80** by default (standard HTTP), so no port suffix is required in your browser.
 
 Access the Home Assistant Web GUI using:
+
 - **By Hostname:**
   ```
   http://homeassistant.local
@@ -153,7 +167,9 @@ Access the Home Assistant Web GUI using:
 # Troubleshooting
 
 ## UEFI Secure Boot Error
+
 If the virtual machine halts with `Access Denied` or `Security Violation`:
+
 - Home Assistant OS does not use Microsoft-signed Secure Boot keys. Secure Boot must be disabled.
 - If using `virt-install`, ensure you passed:
   ```bash
