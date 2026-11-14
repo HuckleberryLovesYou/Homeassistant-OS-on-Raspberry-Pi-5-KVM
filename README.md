@@ -37,7 +37,7 @@ With the deprecation of Home Assistant Supervised in 2025.12, running Home Assis
 
 - **Hardware:** Raspberry Pi 5 (4GB, 8GB, or 16GB RAM)
 - **Host OS:** Raspberry Pi OS 64-bit (Debian Bookworm or Trixie)
-- **Network:** Physical Ethernet connection recommended (required for bridging `br0`)
+- **Network:** Active wired Ethernet connection (required for bridging `br0`; Wi-Fi client interfaces cannot be added to a Layer 2 bridge, though Wi-Fi may remain enabled alongside Ethernet)
 - **Privileges:** Root / sudo access
 
 ---
@@ -81,13 +81,29 @@ sudo usermod -aG libvirt,kvm $USER
 Home Assistant requires Layer 2 network access to your local subnet for device discovery (mDNS, HomeKit, Matter). Configure a network bridge (`br0`) attached to your physical Ethernet interface:
 
 ```bash
-# Identify your active ethernet interface (e.g. eth0 or end0)
-ETH_IF=$(ip -br link | awk '$1 ~ /^(eth|end)/ {print $1}' | head -n 1)
+# Identify your active Ethernet interface (e.g. eth0 or end0) and its MAC address
+ETH_IF=$(ip -br link | awk '$1 ~ /^(eth|end)[0-9]+$/ && $0 ~ /LOWER_UP/ {print $1; exit}')
+ETH_MAC=$(cat "/sys/class/net/$ETH_IF/address")
 
-# Create the bridge connection
-sudo nmcli connection add type bridge con-name br0 ifname br0
-sudo nmcli connection add type bridge-slave con-name br0-slave ifname "$ETH_IF" master br0
-sudo nmcli connection up br0
+# Disable autoconnect on the existing Ethernet profile (e.g. "Wired connection 1") so it does not steal $ETH_IF back on reboot
+EXISTING_UUID=$(nmcli -t -f UUID,DEVICE connection show --active | awk -F: -v dev="$ETH_IF" '$2 == dev {print $1; exit}')
+[ -n "$EXISTING_UUID" ] && sudo nmcli connection modify uuid "$EXISTING_UUID" connection.autoconnect no
+
+# Create the bridge connection (STP disabled to avoid 30s delay; preserve MAC and DHCP client ID)
+sudo nmcli connection add type bridge con-name br0 ifname br0 \
+  bridge.stp no \
+  connection.autoconnect yes \
+  connection.autoconnect-slaves 1 \
+  ethernet.cloned-mac-address "$ETH_MAC" \
+  ipv4.dhcp-client-id mac
+sudo nmcli connection add type bridge-slave con-name br0-slave ifname "$ETH_IF" master br0 connection.autoconnect yes
+
+# Bring up br0 and br0-slave together (keep on one line if connected via SSH)
+sudo nmcli --wait 0 connection up br0 && sudo nmcli connection up br0-slave
+
+# Verify $ETH_IF is enslaved to br0 and br0 has an IPv4 address
+bridge link show
+ip -br addr
 ```
 
 ### Step 3: Download and Prepare the Generic aarch64 Image
@@ -132,6 +148,7 @@ sudo virt-install \
   --graphics none \
   --noautoconsole \
   --network bridge=br0,model=virtio \
+  --channel unix,target.type=virtio,target.name=org.qemu.guest_agent.0 \
   --boot uefi,firmware.feature0.name=enrolled-keys,firmware.feature0.enabled=no,firmware.feature1.name=secure-boot,firmware.feature1.enabled=no
 ```
 
@@ -158,9 +175,9 @@ Access the Home Assistant Web GUI using:
   Because the VM is bridged directly to your LAN via `br0`, it gets its IP address directly from your home router.
   To find the assigned IP address, run:
   ```bash
-  sudo virsh domifaddr haos
+  sudo virsh domifaddr haos --source agent
   ```
-  Or check your router's DHCP client list for a device named `homeassistant`.
+  (If the QEMU guest agent is still starting or unavailable, you can also try `sudo virsh domifaddr haos --source arp`, or check your router's DHCP client list for a device named `homeassistant`.)
 
 ---
 
